@@ -343,22 +343,29 @@ class LoupedeckLive(Loupedeck):
         Start both processes if not started.
         """
         if self.inited:
-            if not self.reading_running:
+            read_alive = self.reading_thread is not None and self.reading_thread.is_alive()
+            if not self.reading_running or not read_alive:
+                if self.reading_running and not read_alive:
+                    logger.warning("start: read flagged running but thread is not alive, restarting")
                 self.reading_thread = threading.Thread(target=self._read_serial)
                 self.reading_thread.name = "LoupedeckLive::_read_serial"
                 self.reading_running = True
                 self.reading_thread.start()
                 logger.debug("start: read started")
             else:
-                logger.warning("start: read already running")
-            if not self.process_running:
+                logger.debug("start: read already running")
+
+            process_alive = self.process_thread is not None and self.process_thread.is_alive()
+            if not self.process_running or not process_alive:
+                if self.process_running and not process_alive:
+                    logger.warning("start: process flagged running but thread is not alive, restarting")
                 self.process_thread = threading.Thread(target=self._process_messages)
                 self.process_thread.name = "LoupedeckLive::_process_messages"
                 self.process_running = True
                 self.process_thread.start()
                 logger.debug("start: process started")
             else:
-                logger.warning("start: process already running")
+                logger.debug("start: process already running")
             logger.debug("start: started")
         else:
             logger.warning("start: cannot start, not initialized")
