@@ -53,7 +53,7 @@ class DeviceManager:
 
         paths = DeviceManager.list()
         for path in paths:
-            l = LoupedeckLive(path=path)
+            l = LoupedeckLive(path=path, auto_start=False)
             if l.is_loupedeck():
                 logger.debug(f"enumerate: added Loupedeck device at {path}")
                 loupedecks.append(l)

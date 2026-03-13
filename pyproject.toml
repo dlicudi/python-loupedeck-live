@@ -62,7 +62,8 @@ Source = "https://github.com/devleaks/python-loupedeck-live"
 #
 [tool.ruff]
 line-length = 160
-docstring-code-format = true
+
+[tool.ruff.lint]
 select = [
     "E",
     "F",
