@@ -191,7 +191,10 @@ class LoupedeckLive(Loupedeck):
         }
 
         self._messages: Queue = Queue()
-        self.get_timeout = 1  # Queue get() timeout, in seconds
+        self.get_timeout = 0.1  # Queue get() timeout, in seconds
+
+        self._batch_mode = False
+        self._batch_dirty_displays: set = set()
 
         if not self.is_loupedeck():
             return None
@@ -294,9 +297,13 @@ class LoupedeckLive(Loupedeck):
 
         while self.reading_running:
             try:
-                raw_byte = self.connection.read()
-                if raw_byte != b"":
-                    magic_byte_length_parser(raw_byte)
+                waiting = self.connection.in_waiting
+                if waiting > 0:
+                    chunk = self.connection.read(waiting)
+                else:
+                    chunk = self.connection.read()  # blocks until 1 byte or timeout
+                if chunk != b"":
+                    magic_byte_length_parser(chunk)
             except Exception:
                 logger.error(f"_read_serial: exception:", exc_info=1)
                 self.reading_running = False
@@ -534,6 +541,19 @@ class LoupedeckLive(Loupedeck):
         self.callback = callback
 
     # #########################################@
+    # Batch mode: suppress per-key refresh, flush once at end
+    #
+    def begin_batch(self):
+        self._batch_mode = True
+        self._batch_dirty_displays.clear()
+
+    def end_batch(self):
+        self._batch_mode = False
+        for display in self._batch_dirty_displays:
+            self.refresh(display)
+        self._batch_dirty_displays.clear()
+
+    # #########################################@
     # Loupedeck Functions
     #
     def set_brightness(self, brightness: int):
@@ -618,7 +638,9 @@ class LoupedeckLive(Loupedeck):
         payload = display_info[KW_ID] + header + buff  # type: ignore
         self.do_action(HEADERS["WRITE_FRAMEBUFF"], payload, track=True)
         # logger.debug(f"draw_buffer: buffer sent {len(buff)} bytes")
-        if auto_refresh:
+        if self._batch_mode:
+            self._batch_dirty_displays.add(display)
+        elif auto_refresh:
             self.refresh(display)
 
     def draw_image(

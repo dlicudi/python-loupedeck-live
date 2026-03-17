@@ -150,12 +150,8 @@ class Loupedeck:
                 prep = bytearray(6)
                 prep[0] = 0x82
                 prep[1] = 0x80 + len(buff)
-                # prep.insert(2, buff_length.to_bytes(4, "big", False))
-            # logger.debug(f"send: PREP: len={len(buff)}: {prep}")
             with self:
-                self.connection.write(prep)
-                self.connection.write(buff)
+                self.connection.write(prep + buff)
         else:
             with self:
-                # logger.debug(f"send: buff: len={len(buff)}, {print_bytes(buff)}") # {buff},
                 self.connection.write(buff)

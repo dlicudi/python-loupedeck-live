@@ -1,4 +1,5 @@
 import io
+import numpy as np
 
 # Displays
 # Should import from Devices.LoupedeckLive
@@ -79,7 +80,7 @@ def create_scaled_image(deck, image, margins=[0, 0, 0, 0], background="black", d
     thumbnail_max_height = final_image.height - (margins[0] + margins[2])
 
     thumbnail = image.convert("RGBA")
-    thumbnail.thumbnail((thumbnail_max_width, thumbnail_max_height), Image.LANCZOS)
+    thumbnail.thumbnail((thumbnail_max_width, thumbnail_max_height), Image.BILINEAR)
 
     thumbnail_x = margins[3] + (thumbnail_max_width - thumbnail.width) // 2
     thumbnail_y = margins[0] + (thumbnail_max_height - thumbnail.height) // 2
@@ -95,31 +96,14 @@ def to_native_format(deck, image):
     suitable for passing to :func:`~send_buffer`.
     Loupedeck uses 16-bit (5-6-5) LE RGB colors
     """
-
-    def rgb565(r, g, b, a=255):
-        p1 = r & 248  # 11111000
-        p1d = p1 >> 3  # display
-
-        p2a = g & 224  # 11100000
-        p2a = p2a >> 5
-        p2b = g & 28  # 00011100
-        p2b = p2b << 3
-        p2bd = p2b >> 5  # display
-
-        p3 = b & 248
-        p3 = p3 >> 3
-
-        b1 = p1 + p2a
-        b2 = p2b + p3
-        b = b1 * 256 + b2
-        # if i == j:
-        #     print(f"{i},{j}: ({r}={r:08b}, {g}={g:08b}, {b}={b:08b}) => ({p1d:05b}|{p2a:03b}|{p2bd:03b}|{p3:05b}) => ({b1:08b}{b2:08b}) = {b:016b}")
-        return b
-
-    buff = bytearray()
-    for j in range(image.height):
-        for i in range(image.width):
-            p = image.getpixel((i, j))
-            b16 = rgb565(*p)
-            buff = buff + b16.to_bytes(2, "little")  # little?? really
-    return buff
+    arr = np.asarray(image)  # (H, W, 3 or 4), dtype=uint8
+    r = arr[:, :, 0].astype(np.uint16)
+    g = arr[:, :, 1].astype(np.uint16)
+    b = arr[:, :, 2].astype(np.uint16)
+    # Pack into RGB565: RRRRRGGGGGGBBBBB
+    rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+    # Split into little-endian byte pairs
+    lo = (rgb565 & 0xFF).astype(np.uint8)
+    hi = ((rgb565 >> 8) & 0xFF).astype(np.uint8)
+    interleaved = np.stack([lo, hi], axis=-1)
+    return bytearray(interleaved.tobytes())
