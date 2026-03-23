@@ -548,10 +548,13 @@ class LoupedeckLive(Loupedeck):
         self._batch_dirty_displays.clear()
 
     def end_batch(self):
-        self._batch_mode = False
-        for display in self._batch_dirty_displays:
-            self.refresh(display)
+        # Snapshot then clear before refreshing: refresh/draw_buffer may re-enter and add to the
+        # set while _batch_mode is still True on other threads, or nested work could mutate the set.
+        to_refresh = list(self._batch_dirty_displays)
         self._batch_dirty_displays.clear()
+        self._batch_mode = False
+        for display in to_refresh:
+            self.refresh(display)
 
     # #########################################@
     # Loupedeck Functions
