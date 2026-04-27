@@ -512,7 +512,7 @@ class LoupedeckLive(Loupedeck):
                 touch["action"] = "touchstart"
                 self.touches[idx] = touch
         else:
-            del self.touches[idx]
+            self.touches.pop(idx, None)
 
         if self.callback:
             self.callback(self, touch)
